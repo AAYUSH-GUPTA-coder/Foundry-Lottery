@@ -5,9 +5,6 @@ pragma solidity 0.8.18;
 import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 
-error Raffle__NotEnoughEthSent();
-error Raffle__TransferFailed();
-
 /**
  * @title A sample Raffle Contract
  * @author Aayush Gupta
@@ -15,8 +12,16 @@ error Raffle__TransferFailed();
  * @dev Implements Chainlink VRFv2
  */
 contract Raffle is VRFConsumerBaseV2 {
-    uint256 private constant NUM_WORDS = 1;
+    error Raffle__NotEnoughEthSent();
+    error Raffle__TransferFailed();
+    error Raffle_RaffleNotOpen();
 
+    enum RaffleState {
+        OPEN, // 0
+        CALCULATING // 1
+    }
+
+    uint256 private constant NUM_WORDS = 1;
     uint256 private s_requestConfirmations = 3;
     uint256 private s_entranceFee;
     uint256 private s_interval;
@@ -27,8 +32,10 @@ contract Raffle is VRFConsumerBaseV2 {
     uint64 private s_subscriptionId;
     uint32 private s_callbackGasLimit;
     address private s_recentWinner;
+    RaffleState private s_raffleState;
 
     event EnteredRaffle(address indexed player);
+    event PickedWinner(address indexed winner);
 
     constructor(
         uint256 _entranceFee,
@@ -45,12 +52,19 @@ contract Raffle is VRFConsumerBaseV2 {
         i_gasLane = _gasLane;
         s_subscriptionId = _subscriptionId;
         s_callbackGasLimit = _callbackGasLimit;
+        s_raffleState = RaffleState.OPEN;
+        s_lastTimeStamp = block.timestamp;
     }
 
     function enterRaffle() public payable {
         if (msg.value < s_entranceFee) {
             revert Raffle__NotEnoughEthSent();
         }
+
+        if (s_raffleState != RaffleState.OPEN) {
+            revert Raffle_RaffleNotOpen();
+        }
+
         s_players.push(payable(msg.sender));
         emit EnteredRaffle(msg.sender);
     }
@@ -59,6 +73,7 @@ contract Raffle is VRFConsumerBaseV2 {
         if ((block.timestamp - s_lastTimeStamp) < s_interval) {
             revert();
         }
+        s_raffleState = RaffleState.CALCULATING;
 
         // chainlink VRF is 2 transcation
         // 1. Request the RNG
@@ -81,15 +96,32 @@ contract Raffle is VRFConsumerBaseV2 {
         uint256 indexOfWinner = _randomWords[0] % s_players.length;
         address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
+        emit PickedWinner(winner);
+
         (bool success, ) = s_recentWinner.call{value: address(this).balance}(
             ""
         );
         if (!success) {
             revert Raffle__TransferFailed();
         }
+
+        s_raffleState = RaffleState.OPEN;
+        s_players = new address payable[](0);
+        s_lastTimeStamp = block.timestamp;
     }
 
     function getEntranceFee() public view returns (uint256) {
         return s_entranceFee;
     }
 }
+
+/**
+ * CEI : Checks, Effects , Intercation
+ *
+ * Checks
+ * require (if -> errors) , revert
+ *
+ * Effect (Our own contract)
+ *
+ * Interaction (Interaction with other smart contract)
+ */
