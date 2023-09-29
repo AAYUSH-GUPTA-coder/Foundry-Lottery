@@ -134,8 +134,12 @@ contract Raffle is VRFConsumerBaseV2 {
         s_lastTimeStamp = block.timestamp;
     }
 
-    function getEntranceFee() public view returns (uint256) {
+    function getEntranceFee() external view returns (uint256) {
         return s_entranceFee;
+    }
+
+    function getRaffleState() external view returns (RaffleState) {
+        return s_raffleState;
     }
 }
 
