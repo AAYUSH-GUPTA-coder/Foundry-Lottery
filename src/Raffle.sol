@@ -15,6 +15,11 @@ contract Raffle is VRFConsumerBaseV2 {
     error Raffle__NotEnoughEthSent();
     error Raffle__TransferFailed();
     error Raffle_RaffleNotOpen();
+    error Raffle__UpkeepNotNeeded(
+        uint256 currentBalance,
+        uint256 numPlayers,
+        uint256 raffleState
+    );
 
     enum RaffleState {
         OPEN, // 0
@@ -69,9 +74,28 @@ contract Raffle is VRFConsumerBaseV2 {
         emit EnteredRaffle(msg.sender);
     }
 
-    function pickWinner() public {
-        if ((block.timestamp - s_lastTimeStamp) < s_interval) {
-            revert();
+    /**
+     * @notice function call by Chainlink Automation nodes to see if it's time to perform an upkeep
+     */
+    function checkUpkeep(
+        bytes memory /*checkData*/
+    ) public view returns (bool upkeepNeeded, bytes memory /*performUpkeep */) {
+        bool timeHasPassed = (block.timestamp - s_lastTimeStamp) >= s_interval;
+        bool isOpen = RaffleState.OPEN == s_raffleState;
+        bool hasBalance = address(this).balance > 0;
+        bool hasPlayers = s_players.length > 0;
+        upkeepNeeded = (timeHasPassed && isOpen && hasBalance && hasPlayers);
+        return (upkeepNeeded, "0x0");
+    }
+
+    function performUpkeep(bytes calldata /*performData*/) external {
+        (bool upkeepNeeded, ) = checkUpkeep("");
+        if (!upkeepNeeded) {
+            revert Raffle__UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
         }
         s_raffleState = RaffleState.CALCULATING;
 
@@ -80,7 +104,7 @@ contract Raffle is VRFConsumerBaseV2 {
         // 2. Get the random number
 
         // Will revert if subscription is not set and funded.
-        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+        i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             s_subscriptionId,
             uint16(s_requestConfirmations),
@@ -90,7 +114,7 @@ contract Raffle is VRFConsumerBaseV2 {
     }
 
     function fulfillRandomWords(
-        uint256 _requestId,
+        uint256 /*_requestId*/,
         uint256[] memory _randomWords
     ) internal override {
         uint256 indexOfWinner = _randomWords[0] % s_players.length;
