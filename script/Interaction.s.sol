@@ -112,7 +112,7 @@ vm.stopBroadcast();
         address raffle = DevOpsTools.get_most_recent_deployment(
             "Raffle",
             block.chainid
-        )
+        );
         addConsumerUsingConfig(raffle);
     }
 }
