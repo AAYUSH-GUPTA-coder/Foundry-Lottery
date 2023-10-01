@@ -6,6 +6,7 @@ import {Script} from "forge-std/Script.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {CreateSubscription} from "./Interaction.s.sol";
+import {AddConsumer} from "./Interaction.s.sol";
 
 contract DeployRaffle is Script {
     function run() external returns (Raffle, HelperConfig) {
@@ -37,6 +38,13 @@ contract DeployRaffle is Script {
             _callbackGasLimit
         );
         vm.stopBroadcast();
+
+        AddConsumer addConsumer = new AddConsumer();
+        addConsumer.addConsumer(
+            address(raffle),
+            _vrfCoordinator,
+            _subscriptionId
+        );
         return (raffle, helperConfig);
     }
 }
