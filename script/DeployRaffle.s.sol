@@ -7,6 +7,7 @@ import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {CreateSubscription} from "./Interaction.s.sol";
 import {AddConsumer} from "./Interaction.s.sol";
+import {FundSubscription} from "./Interaction.s.sol";
 
 contract DeployRaffle is Script {
     function run() external returns (Raffle, HelperConfig) {
@@ -18,13 +19,25 @@ contract DeployRaffle is Script {
             bytes32 _gasLane,
             uint64 _subscriptionId,
             uint32 _callbackGasLimit,
-            address _link
+            address _link,
+            uint256 _deployerKey
         ) = helperConfig.activeNetworkConfig();
 
         if (_subscriptionId == 0) {
+            // Created a subscription
             CreateSubscription createSubscription = new CreateSubscription();
             _subscriptionId = createSubscription.createSubscription(
-                _vrfCoordinator
+                _vrfCoordinator,
+                _deployerKey
+            );
+
+            // Fund the subscription
+            FundSubscription fundSubscription = new FundSubscription();
+            fundSubscription.fundSubscription(
+                _vrfCoordinator,
+                _subscriptionId,
+                _link,
+                _deployerKey
             );
         }
 
@@ -43,7 +56,8 @@ contract DeployRaffle is Script {
         addConsumer.addConsumer(
             address(raffle),
             _vrfCoordinator,
-            _subscriptionId
+            _subscriptionId,
+            _deployerKey
         );
         return (raffle, helperConfig);
     }
