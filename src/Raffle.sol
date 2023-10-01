@@ -41,6 +41,7 @@ contract Raffle is VRFConsumerBaseV2 {
 
     event EnteredRaffle(address indexed player);
     event PickedWinner(address indexed winner);
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     constructor(
         uint256 _entranceFee,
@@ -99,18 +100,19 @@ contract Raffle is VRFConsumerBaseV2 {
         }
         s_raffleState = RaffleState.CALCULATING;
 
-        // chainlink VRF is 2 transcation
+        // chainlink VRF do 2 transcation
         // 1. Request the RNG
         // 2. Get the random number
 
         // Will revert if subscription is not set and funded.
-        i_vrfCoordinator.requestRandomWords(
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             s_subscriptionId,
             uint16(s_requestConfirmations),
             s_callbackGasLimit,
             uint32(NUM_WORDS)
         );
+        emit RequestedRaffleWinner(requestId);
     }
 
     function fulfillRandomWords(
@@ -120,6 +122,9 @@ contract Raffle is VRFConsumerBaseV2 {
         uint256 indexOfWinner = _randomWords[0] % s_players.length;
         address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
+        s_raffleState = RaffleState.OPEN;
+        s_players = new address payable[](0);
+        s_lastTimeStamp = block.timestamp;
         emit PickedWinner(winner);
 
         (bool success, ) = s_recentWinner.call{value: address(this).balance}(
@@ -128,10 +133,6 @@ contract Raffle is VRFConsumerBaseV2 {
         if (!success) {
             revert Raffle__TransferFailed();
         }
-
-        s_raffleState = RaffleState.OPEN;
-        s_players = new address payable[](0);
-        s_lastTimeStamp = block.timestamp;
     }
 
     function getEntranceFee() external view returns (uint256) {
@@ -144,6 +145,18 @@ contract Raffle is VRFConsumerBaseV2 {
 
     function getPlayer(uint256 indexOfPlayer) external view returns (address) {
         return s_players[indexOfPlayer];
+    }
+
+    function getRecentWinner() external view returns (address) {
+        return s_recentWinner;
+    }
+
+    function getLengthOfPlayers() external view returns (uint256) {
+        return s_players.length;
+    }
+
+    function getLastTimestamp() external view returns (uint256) {
+        return s_lastTimeStamp;
     }
 }
 
