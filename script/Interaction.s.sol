@@ -68,8 +68,8 @@ contract FundSubscription is Script {
             vm.stopBroadcast();
         } else {
             vm.startBroadcast();
-            LinkToken(link).transferAndCall(
-                VRFCoordinator,
+            LinkToken(_link).transferAndCall(
+                _vrfCoordinator,
                 FUND_AMOUNT,
                 abi.encode(_subscriptionId)
             );
@@ -83,14 +83,21 @@ contract FundSubscription is Script {
 }
 
 contract AddConsumer is Script {
-    function addConsumer(address _raffle, address _vrfCoordinator, uint64 _subscriptionId) public {
+    function addConsumer(
+        address _raffle,
+        address _vrfCoordinator,
+        uint64 _subscriptionId
+    ) public {
         console.log("Funding Subscription: ", _subscriptionId);
         console.log("Using vrfCoordinator: ", _vrfCoordinator);
-        console.log("Link address", _link);
+        console.log("Raffle address", _raffle);
         console.log("On ChainID: ", block.chainid);
-                    vm.startBroadcast();
-    VRFCoordinatorV2Mock(_vrfCoordinator).addConsumer(_subscriptionId, _raffle);
-vm.stopBroadcast();
+        vm.startBroadcast();
+        VRFCoordinatorV2Mock(_vrfCoordinator).addConsumer(
+            _subscriptionId,
+            _raffle
+        );
+        vm.stopBroadcast();
     }
 
     function addConsumerUsingConfig(address _raffle) public {
@@ -102,7 +109,7 @@ vm.stopBroadcast();
             ,
             uint64 _subscriptionId,
             ,
-            ,
+
         ) = helperConfig.activeNetworkConfig();
 
         addConsumer(_raffle, _vrfCoordinator, _subscriptionId);
