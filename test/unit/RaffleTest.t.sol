@@ -22,6 +22,7 @@ contract RaffleTest is Test {
     uint64 _subscriptionId;
     uint32 _callbackGasLimit;
     address _link;
+    uint256 _deployerKey;
 
     address public PLAYER = makeAddr("player");
     uint256 public constant STARTING_USER_BALANCE = 10 ether;
@@ -37,7 +38,8 @@ contract RaffleTest is Test {
             _gasLane,
             _subscriptionId,
             _callbackGasLimit,
-            _link
+            _link,
+            _deployerKey
         ) = helperConfig.activeNetworkConfig();
 
         vm.deal(PLAYER, STARTING_USER_BALANCE);
@@ -206,9 +208,14 @@ contract RaffleTest is Test {
     //////      fulfillRandomWords          ///
     ////////////////////////////////////////////
 
+    modifier skipFork() {
+        if (block.chainid != 31337) return;
+        _;
+    }
+
     function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(
         uint _randomRequestId
-    ) public raffleEnteredAndTimePassed {
+    ) public raffleEnteredAndTimePassed skipFork {
         // Arrange
         vm.expectRevert("nonexistent request");
         VRFCoordinatorV2Mock(_vrfCoordinator).fulfillRandomWords(
@@ -220,6 +227,7 @@ contract RaffleTest is Test {
     function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney()
         public
         raffleEnteredAndTimePassed
+        skipFork
     {
         // Arrange
         uint256 additionalEntrants = 5;
